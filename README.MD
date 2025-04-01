@@ -70,6 +70,18 @@
 
 3.  **Configure URLs**
 
+    In your root project `urls.py`, include the SecureBite authentication endpoints:
+
+    ```python
+    from django.urls import path, include
+
+    urlpatterns = [
+        ..........................
+        path('auth/', include('secure_bite.urls', namespace="secure_bite")),
+        ..........................
+    ]
+    ```
+
     In your `urls.py`, include the SecureBite authentication endpoints:
 
     ```python
@@ -77,9 +89,9 @@
     from secure_bite.views import LoginView, LogoutView, UserDetails
 
     urlpatterns = [
-        path('api/token/login/', LoginView.as_view(), name='token_login'),
-        path('api/token/logout/', LogoutView.as_view(), name='token_logout'),
-        path('api/user/', UserDetails.as_view(), name='user_details'),
+        path('login/', LoginView.as_view(), name='token_login'),
+        path('logout/', LogoutView.as_view(), name='token_logout'),
+        path('user/', UserDetails.as_view(), name='user_details'),
     ]
     ```
 
