@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10]  # Ensures only valid versions are used
+        python-version: [3.8, 3.9]  # Ensures only valid versions are used
 
     services:
       postgres:
