@@ -18,13 +18,13 @@ jobs:
       postgres:
         image: postgres:13
         ports:
-          - 5432:5432
+          - 5433:5432  # Changed external port to avoid conflicts
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test_db
         options: >-
-          --health-cmd pg_isready -U postgres
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -32,6 +32,12 @@ jobs:
     steps:
     - name: Check out the code
       uses: actions/checkout@v4
+
+    - name: Pull PostgreSQL Image
+      run: docker pull postgres:13  # Ensures the latest image is pulled
+
+    - name: Check Running Docker Containers
+      run: docker ps -a  # Debugging step to check for existing containers
 
     - name: Set up Python
       uses: actions/setup-python@v3
@@ -46,19 +52,19 @@ jobs:
 
     - name: Wait for PostgreSQL to be ready
       run: |
-        until pg_isready -h localhost -p 5432 -U postgres; do
+        until pg_isready -h localhost -p 5433 -U postgres; do
           sleep 1
         done
 
     - name: Apply migrations
       env:
-        DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+        DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
       run: |
         python manage.py migrate --noinput
 
     - name: Run tests
       env:
-        DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+        DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
       run: |
         pytest --ds=your_project.settings --cov=. --cov-report=xml
 
