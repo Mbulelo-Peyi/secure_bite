@@ -68,3 +68,4 @@ jobs:
       with:
         file: secure_bite/coverage.xml
         fail_ci_if_error: true
+ 
