@@ -39,6 +39,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
 
     - name: Install dependencies
+      working-directory: secure_bite
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
@@ -51,13 +52,13 @@ jobs:
         done
 
     - name: Apply migrations
-      working-directory: ${{ github.workspace }}
+      working-directory: secure_bite/secure_bite
       env:
         DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
       run: python manage.py migrate --noinput
 
     - name: Run tests
-      working-directory: ${{ github.workspace }}
+      working-directory: secure_bite/secure_bite
       env:
         DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
       run: |
@@ -66,5 +67,5 @@ jobs:
     - name: Upload coverage report
       uses: codecov/codecov-action@v3
       with:
-        file: ./coverage.xml
+        file: secure_bite/secure_bite/coverage.xml
         fail_ci_if_error: true
