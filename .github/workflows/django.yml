@@ -12,13 +12,13 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.8, 3.9]  # Ensures only valid versions are used
+        python-version: [3.8, 3.9]
 
     services:
       postgres:
         image: postgres:13
         ports:
-          - 5433:5432  # Changed external port to avoid conflicts
+          - 5433:5432
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -33,16 +33,10 @@ jobs:
     - name: Check out the code
       uses: actions/checkout@v4
 
-    - name: Pull PostgreSQL Image
-      run: docker pull postgres:13  # Ensures the latest image is pulled
-
-    - name: Check Running Docker Containers
-      run: docker ps -a  # Debugging step to check for existing containers
-
     - name: Set up Python
       uses: actions/setup-python@v3
       with:
-        python-version: ${{ matrix.python-version }}  # Uses only valid Python versions
+        python-version: ${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
@@ -57,16 +51,17 @@ jobs:
         done
 
     - name: Apply migrations
+      working-directory: ${{ github.workspace }}
       env:
         DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
-      run: |
-        python manage.py migrate --noinput
+      run: python manage.py migrate --noinput
 
     - name: Run tests
+      working-directory: ${{ github.workspace }}
       env:
         DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
       run: |
-        pytest --ds=your_project.settings --cov=. --cov-report=xml
+        pytest --ds=secure_bite.settings --cov=. --cov-report=xml
 
     - name: Upload coverage report
       uses: codecov/codecov-action@v3
