@@ -1,5 +1,5 @@
 - name: Run tests
-  working-directory: test_project
+  working-directory: jwt_cookies
   env:
     DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
   run: |
