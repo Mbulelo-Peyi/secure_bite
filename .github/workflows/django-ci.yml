@@ -1,0 +1,6 @@
+- name: Run tests
+  working-directory: test_project
+  env:
+    DATABASE_URL: postgres://postgres:postgres@localhost:5433/test_db
+  run: |
+    pytest

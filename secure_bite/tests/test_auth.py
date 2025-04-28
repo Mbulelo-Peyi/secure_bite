@@ -14,14 +14,13 @@ class CookieJWTAuthenticationTests(TestCase):
         self.user = User.objects.create_user(username='testuser', password='password')
 
     def test_authenticate_valid_token(self):
-        # Generate a valid token for the test user
         token = AccessToken.for_user(self.user)
         request = self.factory.get('/')
-        request.COOKIES['access_token'] = str(token)
+        request.COOKIES['authToken'] = str(token)  # fixed cookie name
 
         user, validated_token = self.authenticator.authenticate(request)
         self.assertEqual(user, self.user)
-        self.assertEqual(validated_token, token)
+        self.assertEqual(str(validated_token), str(token))
 
     def test_authenticate_no_token(self):
         request = self.factory.get('/')
@@ -30,7 +29,7 @@ class CookieJWTAuthenticationTests(TestCase):
 
     def test_authenticate_invalid_token(self):
         request = self.factory.get('/')
-        request.COOKIES['access_token'] = 'invalidtoken'
+        request.COOKIES['authToken'] = 'invalidtoken'  # fixed cookie name
 
         with self.assertRaises(AuthenticationFailed):
             self.authenticator.authenticate(request)

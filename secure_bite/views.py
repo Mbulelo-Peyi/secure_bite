@@ -7,7 +7,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from secure_bite.authentication import CookieJWTAuthentication
-
+from secure_bite.utils import clear_cookie
 from django.conf import settings
 
 class LoginView(APIView):
@@ -76,9 +76,12 @@ class LogoutView(APIView):
     def post(self, request, *args, **kwargs):
         """Clears JWT cookies on logout."""
         response = Response({"message": "Logged out"}, status=status.HTTP_200_OK)
-        response.delete_cookie(settings.SIMPLE_JWT["AUTH_COOKIE"])
-        response.delete_cookie("refreshToken")
+        
+        # Delete the JWT cookies with the same attributes used to set them from utils clear_cookie
+        clear_cookie(response=response,name=settings.SIMPLE_JWT["AUTH_COOKIE"])
+        clear_cookie(response=response,name="refreshToken")
         return response
+
 
 class UserDetails(APIView):
     authentication_classes = [CookieJWTAuthentication]
@@ -86,7 +89,7 @@ class UserDetails(APIView):
     serializer_class = settings.SIMPLE_JWT["TOKEN_OBTAIN_SERIALIZER"] if "TOKEN_OBTAIN_SERIALIZER" in settings.SIMPLE_JWT else TokenObtainPairSerializer
 
     def get(self, request, *args, **kwargs):
-        # Get the current user
+        """Get the current user"""
         user = request.user
         # Serialize the user data using your custom serializer (without including 'id')
         serializer = self.serializer_class(user)
