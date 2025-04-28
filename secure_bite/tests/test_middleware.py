@@ -1,9 +1,9 @@
 from django.test import TestCase, RequestFactory
 from django.http import HttpResponse
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from secure_bite.middleware import RefreshTokenMiddleware
-from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 User = get_user_model()
 
@@ -13,24 +13,28 @@ class RefreshTokenMiddlewareTests(TestCase):
         self.user = User.objects.create_user(username='testuser', password='password')
         self.middleware = RefreshTokenMiddleware(lambda req: HttpResponse())
 
-    @patch('secure_bite.middleware.RefreshToken.for_user')
-    def test_process_request_valid_refresh_token(self, mock_for_user):
-        # Mocking RefreshToken.for_user to return a mock token
-        mock_token = RefreshToken.for_user(self.user)
-        mock_for_user.return_value = mock_token
+    @patch('secure_bite.middleware.RefreshToken')  # <-- patch the class, not for_user
+    def test_process_request_valid_refresh_token(self, mock_refresh_token_class):
+        # Setup fake refresh token
+        mock_refresh_token = MagicMock()
+        mock_refresh_token.access_token = 'mocked-access-token'
+        mock_refresh_token_class.return_value = mock_refresh_token
 
         request = self.factory.get('/')
-        request.COOKIES['refresh_token'] = str(mock_token)
+        request.COOKIES['refreshToken'] = 'fake-refresh-token'
 
         response = self.middleware(request)
+        response = self.middleware.process_response(request, response)
 
-        # Check if the access token cookie is set in the response
-        self.assertIn('access_token', response.cookies)
-        self.assertEqual(response.cookies['access_token'].value, str(mock_token.access_token))
+        auth_cookie_name = settings.SIMPLE_JWT["AUTH_COOKIE"]
+        self.assertIn(auth_cookie_name, response.cookies)
+        self.assertEqual(response.cookies[auth_cookie_name].value, 'mocked-access-token')
 
-    def test_process_request_no_refresh_token(self):
+    @patch('secure_bite.middleware.RefreshToken')
+    def test_process_request_no_refresh_token(self, mock_refresh_token_class):
         request = self.factory.get('/')
         response = self.middleware(request)
+        response = self.middleware.process_response(request, response)
 
-        # Ensure no access token is set if there's no refresh token
-        self.assertNotIn('access_token', response.cookies)
+        auth_cookie_name = settings.SIMPLE_JWT["AUTH_COOKIE"]
+        self.assertNotIn(auth_cookie_name, response.cookies)

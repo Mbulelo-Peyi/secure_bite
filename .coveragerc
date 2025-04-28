@@ -1,0 +1,13 @@
+# .coveragerc
+[run]
+omit =
+    secure_bite/*
+    tests/*
+    */migrations/*
+    */__init__.py
+    setup.py
+
+[report]
+fail_under = 75
+show_missing = True
+skip_covered = True
