@@ -5,6 +5,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from django.conf import settings
 from django.utils.timezone import now
 from django.http import JsonResponse
+from secure_bite.utils import clear_cookie
 
 class CookieJWTAuthentication(JWTAuthentication):
     """
@@ -71,5 +72,5 @@ class CookieJWTAuthentication(JWTAuthentication):
 
     def clear_auth_cookies(self, response):
         """Clear authentication cookies."""
-        response.delete_cookie("authToken")
-        response.delete_cookie("refreshToken")
+        clear_cookie(response=response,name=settings.SIMPLE_JWT["AUTH_COOKIE"])
+        clear_cookie(response=response,name="refreshToken")

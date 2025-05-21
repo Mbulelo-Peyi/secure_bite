@@ -1,6 +1,5 @@
 from django.utils.deprecation import MiddlewareMixin
 from django.conf import settings
-from django.http import JsonResponse
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 import logging
