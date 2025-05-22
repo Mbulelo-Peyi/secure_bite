@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="secure_bite",
-    version="0.1.2",
+    version="0.1.3",
     author="Mbulelo Peyi",
     author_email="notseenyet013@gmail.com",
     description="A secure authentication and session management system for Django",
