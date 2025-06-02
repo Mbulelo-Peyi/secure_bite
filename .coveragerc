@@ -1,7 +1,8 @@
 # .coveragerc
 [run]
+source =
+    secure_bite/
 omit =
-    secure_bite/*
     tests/*
     */migrations/*
     */__init__.py

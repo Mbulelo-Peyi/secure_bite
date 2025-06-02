@@ -1,33 +1,40 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
-from rest_framework.views import APIView
+from rest_framework.viewsets import ViewSet
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.exceptions import TokenError
 from secure_bite.authentication import CookieJWTAuthentication
 from secure_bite.utils import clear_cookie
-from django.conf import settings
+from secure_bite.utils import get_jwt_cookie_settings, get_simple_jwt_settings
 
-class LoginView(APIView):
-    permission_classes = (AllowAny,)
+cookie_settings = get_jwt_cookie_settings()
+jwt_settings = get_simple_jwt_settings()
 
-    def post(self, request, *args, **kwargs):
+class AuthenticationViewset(ViewSet):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = (IsAuthenticated,)
+    serializer_class = cookie_settings["USER_SERIALIZER"]
+
+    @action(methods=["POST"], detail=False)
+    def login(self, request, *args, **kwargs):
         """Authenticates the user using the dynamic username field and password and sets JWT tokens in cookies."""
-        
-        # Get identifier (username, email or phone) and password from request
-        identifier = request.data.get("user_field")  # Expecting "username_or_email_or_phone" as the input field
-        password = request.data.get("password")
-        
-        if not identifier or not password:
-            return Response({"error": "Both 'user_field' and 'password' are required."}, status=400)
-
+        if request.user and request.user.is_authenticated:
+            return Response({"message": "Already authenticated"}, status=status.HTTP_200_OK)
         # Get the custom user model dynamically
         User = get_user_model()
 
         # Get the USERNAME_FIELD from the user model (it could be 'username', 'email', or another custom field)
         username_field = User.USERNAME_FIELD
+        # Get identifier (username, email or phone) and password from request
+        identifier = request.data.get(username_field)  # Expecting "username_or_email_or_phone" as the input field
+        password = request.data.get("password")
+        
+        if not identifier or not password:
+            return Response({"error": f"Both '{username_field}' and 'password' are required."}, status=400)
         
         # Create a dictionary to authenticate with the correct username field
         credentials = {username_field: identifier, 'password': password}
@@ -49,68 +56,71 @@ class LoginView(APIView):
 
         # Set the access token in a cookie
         response.set_cookie(
-            settings.SIMPLE_JWT["AUTH_COOKIE"],
+            cookie_settings["AUTH_COOKIE"],
             access_token,
-            max_age=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"],
+            max_age=jwt_settings["ACCESS_TOKEN_LIFETIME"],
             httponly=True,
-            secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
-            samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+            secure=cookie_settings["AUTH_COOKIE_SECURE"],
+            samesite=cookie_settings["AUTH_COOKIE_SAMESITE"],
         )
 
         # Set the refresh token in a cookie
         response.set_cookie(
             "refreshToken",
             refresh_token,
-            max_age=settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
+            max_age=jwt_settings["REFRESH_TOKEN_LIFETIME"],
             httponly=True,
-            secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
-            samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+            secure=cookie_settings["AUTH_COOKIE_SECURE"],
+            samesite=cookie_settings["AUTH_COOKIE_SAMESITE"],
         )
 
         return response
-
-class LogoutView(APIView):
-    authentication_classes = [CookieJWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-
-    def post(self, request, *args, **kwargs):
+    
+    @action(methods=["POST"], detail=False)
+    def logout(self, request, *args, **kwargs):
         """Clears JWT cookies on logout."""
+        try:
+            refresh_token = request.COOKIES.get("refreshToken")
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+        except TokenError:
+            pass
+
         response = Response({"message": "Logged out"}, status=status.HTTP_200_OK)
-        
-        # Delete the JWT cookies with the same attributes used to set them from utils clear_cookie
-        clear_cookie(response=response,name=settings.SIMPLE_JWT["AUTH_COOKIE"])
-        clear_cookie(response=response,name="refreshToken")
+        clear_cookie(response, name=cookie_settings["AUTH_COOKIE"])
+        clear_cookie(response, name="refreshToken")
         return response
 
-
-class UserDetails(APIView):
-    authentication_classes = [CookieJWTAuthentication]
-    permission_classes = (IsAuthenticated,)
-    serializer_class = settings.SIMPLE_JWT["TOKEN_OBTAIN_SERIALIZER"] if "TOKEN_OBTAIN_SERIALIZER" in settings.SIMPLE_JWT else TokenObtainPairSerializer
-
-    def get(self, request, *args, **kwargs):
+    @action(methods=["GET"], detail=False)
+    def me(self, request, *args, **kwargs):
         """Get the current user"""
         user = request.user
         # Serialize the user data using your custom serializer (without including 'id')
         serializer = self.serializer_class(user)
 
         # Pop the tokens from the serialized data to avoid including them in the response
-        serializer.data.pop('access', None)
-        serializer.data.pop('refresh', None)
+        data = serializer.data.copy()
+        data.pop('access', None)
+        data.pop('refresh', None)
 
-        # Check if 'id' is in the serialized data
-        # Manually add the 'id' field if it's missing
-        if len(serializer.data.items()) == 0:
-            data = {"id":user.id}
-            return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-class ProtectedView(APIView):
-    """
-    Protected endpoint requiring authentication.
-    """
-    authentication_classes = [CookieJWTAuthentication]
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, *args, **kwargs):
+    @action(methods=["GET"], detail=False)
+    def auth_check(self, request, *args, **kwargs):
+        """
+        Protected endpoint requiring authentication.
+        """
         return Response({"message": "You are authenticated"}, status=status.HTTP_200_OK)
+    
+
+    def get_permissions(self):
+        if self.action == "login":
+            self.permission_classes = (AllowAny,)
+        else:
+            self.permission_classes = (IsAuthenticated,)
+        return super().get_permissions()
+    
+
+    
+

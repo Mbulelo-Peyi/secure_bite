@@ -5,7 +5,10 @@ from rest_framework_simplejwt.exceptions import TokenError
 from django.conf import settings
 from django.utils.timezone import now
 from django.http import JsonResponse
-from secure_bite.utils import clear_cookie
+from secure_bite.utils import clear_cookie, get_jwt_cookie_settings, get_simple_jwt_settings
+
+cookie_settings = get_jwt_cookie_settings()
+jwt_settings = get_simple_jwt_settings()
 
 class CookieJWTAuthentication(JWTAuthentication):
     """
@@ -51,12 +54,12 @@ class CookieJWTAuthentication(JWTAuthentication):
     def set_access_cookie(self, response, access_token):
         """Set the refreshed access token in the response cookies."""
         response.set_cookie(
-            settings.SIMPLE_JWT["AUTH_COOKIE"],
+            cookie_settings["AUTH_COOKIE"],
             access_token,
-            max_age=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"],
+            max_age=jwt_settings["ACCESS_TOKEN_LIFETIME"],
             httponly=True,
-            secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
-            samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+            secure=cookie_settings["AUTH_COOKIE_SECURE"],
+            samesite=cookie_settings["AUTH_COOKIE_SAMESITE"],
         )
 
     def set_refresh_cookie(self, response, refresh_token):
@@ -64,13 +67,13 @@ class CookieJWTAuthentication(JWTAuthentication):
         response.set_cookie(
             "refreshToken",
             refresh_token,
-            max_age=settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
+            max_age=jwt_settings["REFRESH_TOKEN_LIFETIME"],
             httponly=True,
-            secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
-            samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+            secure=cookie_settings["AUTH_COOKIE_SECURE"],
+            samesite=cookie_settings["AUTH_COOKIE_SAMESITE"],
         )
 
     def clear_auth_cookies(self, response):
         """Clear authentication cookies."""
-        clear_cookie(response=response,name=settings.SIMPLE_JWT["AUTH_COOKIE"])
+        clear_cookie(response=response,name=cookie_settings["AUTH_COOKIE"])
         clear_cookie(response=response,name="refreshToken")

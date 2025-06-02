@@ -54,18 +54,22 @@
     SESSION_COOKIE_SECURE = True
 
     SIMPLE_JWT = {
-        'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-        'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-        'ROTATE_REFRESH_TOKENS': True,
-        'BLACKLIST_AFTER_ROTATION': True,
-        'UPDATE_LAST_LOGIN': False,
-
-        # SecureBite Cookie Settings
-        'AUTH_COOKIE': 'accessToken',  # Name of the access token cookie
-        'AUTH_COOKIE_SECURE': True,  # Set to True in production (requires HTTPS)
-        'AUTH_COOKIE_HTTP_ONLY': True,  # Prevent access via JavaScript
-        'AUTH_COOKIE_SAMESITE': 'Lax',  # Adjust according to your security needs
+        "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+        "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+        "ROTATE_REFRESH_TOKENS": True,
+        "BLACKLIST_AFTER_ROTATION": True,
     }
+
+    JWT_AUTH_COOKIE_SETTINGS = {
+        "AUTH_COOKIE": "authToken",                 # Access token cookie name
+        "REFRESH_COOKIE": "refreshToken",           # Refresh token cookie name
+        "AUTH_COOKIE_HTTP_ONLY": True,              # Prevents JavaScript access
+        "AUTH_COOKIE_SECURE": False,                 # Use True in production (HTTPS)
+        "AUTH_COOKIE_SAMESITE": "Lax",              # Or 'Strict' or 'None'
+        "AUTH_COOKIE_PATH": "/",                    # Path scope of the cookie
+        "USER_SERIALIZER": "secure_bite.serializers.UserSerializer"
+    }
+
     ```
 
 3.  **Configure URLs**
@@ -85,25 +89,30 @@
     In your `urls.py`, include the SecureBite authentication endpoints:
 
     ```python
-    from django.urls import path
-    from secure_bite.views import LoginView, LogoutView, UserDetails
+    from django.urls import path, include
+    from rest_framework.routers import DefaultRouter
+    from secure_bite import views
+
+    app_name = "secure_bite"
+
+    router = DefaultRouter()
+    router.register(r'auth', views.AuthenticationViewset, basename='auth')
 
     urlpatterns = [
-        path('login/', LoginView.as_view(), name='token_login'),
-        path('logout/', LogoutView.as_view(), name='token_logout'),
-        path('user/', UserDetails.as_view(), name='user_details'),
+        path('', include(router.urls)),
     ]
     ```
 
 ##   Usage
 
-1.  **Login (POST /api/token/login/)**
+1.  **Login (POST /auth/login/)**
 
     Authenticates the user using the configured USERNAME\_FIELD (email, username, etc.) and sets the access token and refresh token in HTTP-only cookies. [cite: 9, 10]
 
     **Request:**
 
     ```json
+    <!-- user_field == USERNAME_FIELD -->
     {
       "user_field": "user@example.com",
       "password": "your_password"
@@ -124,7 +133,7 @@
 
     * `refreshToken` → Contains the JWT refresh token (HTTP-only, Secure)
 
-2.  **Logout (POST /api/token/logout/)**
+2.  **Logout (POST /auth/logout/)**
 
     Clears authentication cookies to log the user out securely. [cite: 10, 11]
 
@@ -148,14 +157,14 @@
 
     * `refreshToken` → Deleted
 
-3.  **Get User Details (GET /api/user/)**
+3.  **Get User Details (GET /auth/me/)**
 
     Returns the authenticated user's details. [cite: 11, 12] The access token is required in the request cookies. [cite: 12]
 
     **Request (Cookies must contain accessToken)**
 
     ```
-    GET /api/user/
+    GET /auth/me/
     ```
 
     **Response (Example for custom token claims):**
@@ -205,7 +214,7 @@
       useEffect(() => {
         const fetchUser = async () => {
           try {
-            const response = await axios.get('/api/user/'); // SecureBite endpoint
+            const response = await axios.get('/auth/me/'); // SecureBite endpoint
             setUser(response.data);
           } catch (error) {
             console.error('Error fetching user:', error);

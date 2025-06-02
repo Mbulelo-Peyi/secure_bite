@@ -142,16 +142,22 @@ from datetime import timedelta
 CSRF_COOKIE_SECURE = True  
 SESSION_COOKIE_SECURE = True 
 
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Access token expiration time
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # Refresh token expiration time (7 days)
-    'ROTATE_REFRESH_TOKENS': True,                    # Enable refresh token rotation
-    'BLACKLIST_AFTER_ROTATION': True,                 # Blacklist old refresh tokens after rotation
-    'AUTH_COOKIE': 'authToken',                       # Cookie name for storing the access token
-    'AUTH_COOKIE_HTTP_ONLY': True,                    # Makes cookie HTTP-only
-    'AUTH_COOKIE_SECURE': True,                       # Set to True if you're using HTTPS
-    # 'AUTH_COOKIE_SAMESITE': 'Strict',                 # Cookie SameSite setting
-    "AUTH_COOKIE_SAMESITE": "Lax"
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+}
+
+# Custom cookie and auth-related settings (used by your own app)
+JWT_AUTH_COOKIE_SETTINGS = {
+    'AUTH_COOKIE': 'authToken',
+    'REFRESH_COOKIE': 'refreshToken',
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_SECURE': True,
+    'AUTH_COOKIE_SAMESITE': 'Lax',
+    'AUTH_COOKIE_PATH': '/',
 }
 
 
