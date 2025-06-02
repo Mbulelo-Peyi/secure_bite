@@ -4,7 +4,9 @@ from unittest.mock import patch, MagicMock
 from secure_bite.middleware import RefreshTokenMiddleware
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from secure_bite.utils import get_jwt_cookie_settings
 
+cookie_settings = get_jwt_cookie_settings()
 User = get_user_model()
 
 class RefreshTokenMiddlewareTests(TestCase):
@@ -26,7 +28,7 @@ class RefreshTokenMiddlewareTests(TestCase):
         response = self.middleware(request)
         response = self.middleware.process_response(request, response)
 
-        auth_cookie_name = settings.SIMPLE_JWT["AUTH_COOKIE"]
+        auth_cookie_name = cookie_settings["AUTH_COOKIE"]
         self.assertIn(auth_cookie_name, response.cookies)
         self.assertEqual(response.cookies[auth_cookie_name].value, 'mocked-access-token')
 
@@ -36,5 +38,5 @@ class RefreshTokenMiddlewareTests(TestCase):
         response = self.middleware(request)
         response = self.middleware.process_response(request, response)
 
-        auth_cookie_name = settings.SIMPLE_JWT["AUTH_COOKIE"]
+        auth_cookie_name = cookie_settings["AUTH_COOKIE"]
         self.assertNotIn(auth_cookie_name, response.cookies)

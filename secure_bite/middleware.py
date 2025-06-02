@@ -3,8 +3,12 @@ from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 import logging
+from secure_bite.utils import get_jwt_cookie_settings, get_simple_jwt_settings
 
 logger = logging.getLogger(__name__)
+
+cookie_settings = get_jwt_cookie_settings()
+jwt_settings = get_simple_jwt_settings()
 
 class RefreshTokenMiddleware(MiddlewareMixin):
     """Middleware to automatically refresh JWT tokens when expired."""
@@ -30,11 +34,11 @@ class RefreshTokenMiddleware(MiddlewareMixin):
         """If a new token was generated, set it in cookies."""
         if request.new_access_token:
             response.set_cookie(
-                settings.SIMPLE_JWT["AUTH_COOKIE"],
+                cookie_settings["AUTH_COOKIE"],
                 request.new_access_token,
-                max_age=settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"],  # 15 minutes
+                max_age=jwt_settings["ACCESS_TOKEN_LIFETIME"],  # 15 minutes
                 httponly=True,
-                secure=settings.SIMPLE_JWT["AUTH_COOKIE_SECURE"],
-                samesite=settings.SIMPLE_JWT["AUTH_COOKIE_SAMESITE"],
+                secure=cookie_settings["AUTH_COOKIE_SECURE"],
+                samesite=cookie_settings["AUTH_COOKIE_SAMESITE"],
             )
         return response
