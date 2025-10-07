@@ -1,347 +1,439 @@
-#   SecureBite
+# SecureBite
 
-    SecureBite is a Django package designed to enhance authentication and session management by integrating cookie-based authentication with JWT tokens. [cite: 1, 2] It leverages Django REST Framework (DRF) and SimpleJWT to provide a secure and efficient authentication mechanism. [cite: 2]
+**SecureBite** is a Django package that provides **secure, cookie-based authentication and session management** using **JWT tokens**. It integrates seamlessly with **Django REST Framework (DRF)** and **SimpleJWT**, offering a simple and secure authentication experience for SPAs and mobile apps.
 
-##   Features
+It supports traditional username/password login, **OAuth2 providers (Google, GitHub, etc.)**, automatic token refreshing, and logout handling — all with HTTP-only cookies for maximum security.
 
-* **Cookie-Based Authentication** – Stores JWT tokens in HTTP-only cookies, preventing client-side access and reducing security risks. [cite: 3]
+---
 
-* **JWT Integration** – Uses JWT tokens for stateless authentication, ensuring efficient session management. [cite: 4]
+## Features
 
-* **Automatic Token Refreshing** – Middleware automatically refreshes tokens, maintaining seamless user sessions. [cite: 5]
+* **Cookie-Based JWT Authentication** – JWT tokens are stored in HTTP-only cookies to prevent XSS token theft.
+* **Automatic Token Refreshing** – Middleware refreshes access tokens before expiry.
+* **Logout Support** – Securely clears authentication cookies.
+* **OAuth2 Login Support** – Optional integration with external providers like Google, GitHub, etc.
+* **User Serialization** – Easily customize what user data is returned in `/auth/me/`.
+* **Simple Integration** – Works out of the box with minimal setup.
 
-* **Logout Support** – Provides a secure logout mechanism by clearing authentication cookies. [cite: 6]
+---
 
-##   Installation
+## Installation
 
-    To integrate SecureBite into your Django project, follow these steps:
+1. **Install required dependencies**
 
-1.  **Install Required Packages**
+```bash
+pip install django djangorestframework djangorestframework-simplejwt djangorestframework-simplejwt[token_blacklist] secure_bite
+```
 
-    Run the following command:
+2. **Add to `settings.py`**
 
-    ```bash
-    pip install rest_framework
-    pip install djangorestframework-simplejwt
-    pip install djangorestframework-simplejwt[token_blacklist]
-    pip install secure_bite
-    ```
+```python
+from datetime import timedelta
 
-2.  **Update Django Settings**
+INSTALLED_APPS = [
+    'secure_bite',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
+    ...
+]
 
-    In your `settings.py`, add the following configurations:
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    ...
+    'secure_bite.middleware.RefreshTokenMiddleware',  # SecureBite middleware
+]
 
-    ```python
-    from datetime import timedelta
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "secure_bite.authentication.JWTAuthCookieAuthentication",
+    ],
+}
 
-    INSTALLED_APPS = [
-        'secure_bite',
-        'rest_framework',
-        'rest_framework_simplejwt',
-        'rest_framework_simplejwt.token_blacklist',
-        'corsheaders',  # Ensure CORS support
-        ...
-    ]
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
 
-    MIDDLEWARE = [
-        'django.middleware.security.SecurityMiddleware',
-        'corsheaders.middleware.CorsMiddleware',
-        ...
-        'secure_bite.middleware.RefreshTokenMiddleware',  # SecureBite middleware
-    ]
+JWT_AUTH_COOKIE_SETTINGS = {
+    "AUTH_COOKIE": "authToken",                 # Access token cookie name
+    "REFRESH_COOKIE": "refreshToken",           # Refresh token cookie name
+    "AUTH_COOKIE_HTTP_ONLY": True,              # Prevents JavaScript access
+    "AUTH_COOKIE_SECURE": False,                # True in production (HTTPS)
+    "AUTH_COOKIE_SAMESITE": "Lax",
+    "USER_SERIALIZER": "secure_bite.serializers.UserSerializer",
+}
+```
 
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
+---
 
-    SIMPLE_JWT = {
-        "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-        "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-        "ROTATE_REFRESH_TOKENS": True,
-        "BLACKLIST_AFTER_ROTATION": True,
+## URL Configuration
+
+In your root `urls.py`:
+
+```python
+from django.urls import path, include
+
+urlpatterns = [
+    path("auth/", include("secure_bite.urls", namespace="secure_bite")),
+]
+```
+
+---
+
+## Usage
+
+### 1. Login
+
+**POST /auth/login/**
+
+Authenticates a user and sets `authToken` and `refreshToken` cookies.
+
+**Request**
+
+```json
+{
+  "email": "user@example.com",
+  "password": "your_password"
+}
+```
+
+**Response**
+
+```json
+{
+  "message": "Login successful"
+}
+```
+
+---
+
+### 2. OAuth2 Login
+
+**GET /auth/oauth_start/<provider>/example.com/**
+
+Redirects the user to the OAuth provider (e.g., Google).
+After authentication, the user is redirected back with valid cookies set.
+
+Supported providers (example):
+
+* `/auth/oauth_start/google/example.com/`
+* `/auth/oauth_start/github/example.com/`
+
+---
+
+### 3. Logout
+
+**POST /auth/logout/**
+
+Clears authentication cookies.
+
+**Response**
+
+```json
+{
+  "message": "Logged out"
+}
+```
+
+---
+
+### 4. Get Current User
+
+**GET /auth/me/**
+
+Returns user details based on the active access token.
+
+**Response**
+
+```json
+{
+  "id": 1,
+  "email": "user@example.com"
+}
+```
+
+---
+
+### 5. Automatic Token Refresh
+
+The middleware automatically refreshes tokens near expiry.
+No frontend logic is required — tokens are renewed silently via cookies.
+
+---
+
+## Example React Integration
+
+Below is a minimal React setup using **Context API** and **Axios** to work with SecureBite’s endpoints.
+
+---
+
+### **1. `UserContext.js`**
+
+```jsx
+import React, { createContext, useContext, useEffect, useState } from "react";
+import axios from "axios";
+
+const UserContext = createContext();
+
+export const UserProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchUser = async () => {
+    try {
+      const res = await axios.get("/auth/me/", { withCredentials: true });
+      setUser(res.data);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    JWT_AUTH_COOKIE_SETTINGS = {
-        "AUTH_COOKIE": "authToken",                 # Access token cookie name
-        "REFRESH_COOKIE": "refreshToken",           # Refresh token cookie name
-        "AUTH_COOKIE_HTTP_ONLY": True,              # Prevents JavaScript access
-        "AUTH_COOKIE_SECURE": False,                 # Use True in production (HTTPS)
-        "AUTH_COOKIE_SAMESITE": "Lax",              # Or 'Strict' or 'None'
-        "AUTH_COOKIE_PATH": "/",                    # Path scope of the cookie
-        "USER_SERIALIZER": "secure_bite.serializers.UserSerializer"
-    }
+  useEffect(() => {
+    fetchUser();
+  }, []);
 
-    ```
+  const login = async (email, password) => {
+    await axios.post("/auth/login/", { email, password }, { withCredentials: true });
+    await fetchUser();
+  };
 
-3.  **Configure URLs**
+  const logout = async () => {
+    await axios.post("/auth/logout/", {}, { withCredentials: true });
+    setUser(null);
+  };
 
-    In your root project `urls.py`, include the SecureBite authentication endpoints:
+  return (
+    <UserContext.Provider value={{ user, loading, login, logout }}>
+      {loading ? <div>Loading...</div> : children}
+    </UserContext.Provider>
+  );
+};
 
-    ```python
-    from django.urls import path, include
+export const useUser = () => useContext(UserContext);
+```
 
-    urlpatterns = [
-        ..........................
-        path('auth/', include('secure_bite.urls', namespace="secure_bite")),
-        ..........................
-    ]
-    ```
+---
 
-    In your `urls.py`, include the SecureBite authentication endpoints:
+### **2. `Login.js`**
 
-    ```python
-    from django.urls import path, include
-    from rest_framework.routers import DefaultRouter
-    from secure_bite import views
+```jsx
+import React, { useState } from "react";
+import { useUser } from "./UserContext";
 
-    app_name = "secure_bite"
+const Login = () => {
+  const { login } = useUser();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-    router = DefaultRouter()
-    router.register(r'auth', views.AuthenticationViewset, basename='auth')
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await login(email, password);
+  };
 
-    urlpatterns = [
-        path('', include(router.urls)),
-    ]
-    ```
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" required />
+      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
+      <button type="submit">Login</button>
+    </form>
+  );
+};
 
-##   Usage
+export default Login;
+```
 
-1.  **Login (POST /auth/login/)**
+---
 
-    Authenticates the user using the configured USERNAME\_FIELD (email, username, etc.) and sets the access token and refresh token in HTTP-only cookies. [cite: 9, 10]
+### **3. `Profile.js`**
 
-    **Request:**
+```jsx
+import React from "react";
+import { useUser } from "./UserContext";
 
-    ```json
-    <!-- user_field == USERNAME_FIELD -->
-    {
-      "user_field": "user@example.com",
-      "password": "your_password"
-    }
-    ```
+const Profile = () => {
+  const { user, logout } = useUser();
 
-    **Response:**
+  if (!user) return <div>Not logged in</div>;
 
-    ```json
-    {
-      "message": "Login successful"
-    }
-    ```
+  return (
+    <div>
+      <h2>Welcome, {user.email}</h2>
+      <button onClick={logout}>Logout</button>
+    </div>
+  );
+};
 
-    **Cookies Set:**
+export default Profile;
+```
 
-    * `accessToken` → Contains the JWT access token (HTTP-only, Secure)
+---
 
-    * `refreshToken` → Contains the JWT refresh token (HTTP-only, Secure)
+### **4. App Setup**
 
-2.  **Logout (POST /auth/logout/)**
+```jsx
+import React from "react";
+import { UserProvider } from "./UserContext";
+import Login from "./Login";
+import Profile from "./Profile";
 
-    Clears authentication cookies to log the user out securely. [cite: 10, 11]
+function App() {
+  return (
+    <UserProvider>
+      <Profile />
+      <Login />
+    </UserProvider>
+  );
+}
 
-    **Request:**
+export default App;
+```
+## OAuth2 Integration (React)
 
-    ```json
-    {}
-    ```
+SecureBite supports OAuth2 logins (Google, GitHub, etc.). The flow is simple: redirect the user to the provider, receive a callback, and set JWT cookies.
 
-    **Response:**
+---
 
-    ```json
-    {
-      "message": "Logged out"
-    }
-    ```
+### **1. Redirect to Provider**
 
-    **Cookies Cleared:**
+Create a React button to redirect users:
 
-    * `accessToken` → Deleted
+```jsx
+import React from "react";
 
-    * `refreshToken` → Deleted
+const OAuthLoginButton = ({ provider }) => {
+  const handleLogin = () => {
+    // Redirect user to backend OAuth endpoint
+    window.location.href = `/auth/oauth_start/${provider}/example.com/`;
+  };
 
-3.  **Get User Details (GET /auth/me/)**
+  return (
+    <button onClick={handleLogin}>
+      Login with {provider.charAt(0).toUpperCase() + provider.slice(1)}
+    </button>
+  );
+};
 
-    Returns the authenticated user's details. [cite: 11, 12] The access token is required in the request cookies. [cite: 12]
+export default OAuthLoginButton;
+```
 
-    **Request (Cookies must contain accessToken)**
+* `provider` can be `"google"`, `"github"`, etc.
+* Clicking the button sends the user to the backend OAuth login page.
 
-    ```
-    GET /auth/me/
-    ```
+---
+---
+### **2. OAuth Callback Handling**
 
-    **Response (Example for custom token claims):**
+After the user authenticates with the provider, they are redirected back to your frontend (configured in the OAuth provider settings). SecureBite sets the JWT cookies automatically.
 
-    ```json
-    {
-      "email": "user@example.com"
-    }
-    ```
+You can handle the frontend state like this:
 
-    **Response (If TokenObtainPairSerializer returns empty data, id is included manually):**
+```jsx
+import React, { useEffect } from "react";
+import { useUser } from "./UserContext";
+import { useNavigate } from "react-router-dom";
 
-    ```json
-    {
-      "id": 1
-    }
-    ```
+const OAuthCallback = () => {
+  const { fetchUser } = useUser(); // from UserContext
+  const navigate = useNavigate();
 
-##   Automatic Token Refreshing
-
-    SecureBite’s middleware automatically refreshes tokens. [cite: 12, 13] If an access token is about to expire, a new token is issued transparently via cookies without requiring the user to log in again. [cite: 13]
-
-##   Security Considerations
-
-* **Use HTTPS** – SecureBite relies on HTTP-only cookies, which require HTTPS to be fully secure. [cite: 14]
-
-* **Enable CSRF Protection** – Ensure CSRF protection is enabled to prevent cross-site request forgery attacks. [cite: 15]
-
-* **Token Blacklisting** – Enable token blacklisting to invalidate refresh tokens when necessary. [cite: 16]
-
-##   React Components and Context API Example
-
-    Here's how you might use React components and the Context API to manage the user state obtained from the `/api/user/` endpoint.
-
-**1.  UserContext.js**
-
-    ```jsx
-    import React, { createContext, useState, useEffect, useContext } from 'react';
-    import axios from 'axios'; // You'll need to install axios: npm install axios
-
-    const UserContext = createContext();
-
-    export const UserProvider = ({ children }) => {
-      const [user, setUser] = useState(null);
-      const [loading, setLoading] = useState(true);
-
-      useEffect(() => {
-        const fetchUser = async () => {
-          try {
-            const response = await axios.get('/auth/me/'); // SecureBite endpoint
-            setUser(response.data);
-          } catch (error) {
-            console.error('Error fetching user:', error);
-            setUser(null); // Or handle error state appropriately
-          } finally {
-            setLoading(false);
-          }
-        };
-
-        fetchUser();
-      }, []); // Run only on mount (assumes token is already in cookies)
-
-      const contextValue = {
-        user,
-        setUser,
-        loading,
-      };
-
-      return (
-        <UserContext.Provider value={contextValue}>
-          {!loading && children} {/* Only render children if not loading */}
-          {loading && <div>Loading...</div>} {/* Optional: Display a loading message */}
-        </UserContext.Provider>
-      );
+  useEffect(() => {
+    // Fetch the authenticated user after OAuth callback
+    const fetchAndRedirect = async () => {
+      await fetchUser();
+      navigate("/dashboard"); // Redirect to a protected route
     };
+    fetchAndRedirect();
+  }, [fetchUser, navigate]);
 
-    export const useUser = () => {
-      const context = useContext(UserContext);
-      if (!context) {
-        throw new Error('useUser must be used within a UserProvider');
-      }
-      return context;
-    };
-    ```
+  return <div>Logging you in...</div>;
+};
 
-**2.  Example Component (Profile.js)**
+export default OAuthCallback;
+```
 
-    ```jsx
-    import React from 'react';
-    import { useUser } from './UserContext';
+**Flow:**
 
-    const Profile = () => {
-      const { user, loading } = useUser();
+1. User clicks **Login with Google** → Redirected to `/auth/oauth_start/google/example.com/`
+2. Authenticated by Google → Redirected back to your frontend callback URL
+3. SecureBite sets JWT cookies (`authToken` and `refreshToken`)
+4. React `UserContext` fetches user data → App renders protected pages
 
-      if (loading) {
-        return <div>Loading user data...</div>;
-      }
+---
 
-      if (!user) {
-        return <div>Not logged in or error fetching user.</div>;
-      }
+### **3. Example Routes Setup (React Router v6)**
 
-      return (
-        <div>
-          <h2>User Profile</h2>
-          <p>Email: {user.email || 'N/A'}</p>
-          <p>ID: {user.id || 'N/A'}</p>
-          {/* Add other user details here */}
-        </div>
-      );
-    };
+```jsx
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { UserProvider } from "./UserContext";
+import Login from "./Login";
+import Profile from "./Profile";
+import OAuthCallback from "./OAuthCallback";
 
-    export default Profile;
-    ```
+function App() {
+  return (
+    <UserProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/oauth/callback" element={<OAuthCallback />} />
+        </Routes>
+      </Router>
+    </UserProvider>
+  );
+}
 
-**3.  Wrapping Your App**
+export default App;
+```
 
-    ```jsx
-    import React from 'react';
-    import ReactDOM from 'react-dom/client';
-    import App from './App';
-    import { UserProvider } from './UserContext';
+---
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(
-      <React.StrictMode>
-        <UserProvider>
-          <App />
-        </UserProvider>
-      </React.StrictMode>
-    );
-    ```
+### **4. Key Considerations**
 
-**Explanation of React Code:**
+* **CORS**: Ensure your Django backend allows your frontend domain. Include `withCredentials: true` in Axios requests.
+* **HTTPS**: Required in production for secure cookies.
+* **React State**: After OAuth callback, always fetch the user via `/auth/me/` to update the frontend state.
+* **Logout**: Works the same as standard login; JWT cookies are cleared by `/auth/logout/`.
 
-* **`UserContext`**: This context stores the user's data (`user`), a function to update it (`setUser`), and a loading state (`loading`).
+---
 
-* **`UserProvider`**: This component wraps your application and makes the user data available to all components that need it. It fetches the user data from `/api/user/` when it mounts. **Important:** This assumes your access token is already correctly stored in cookies by SecureBite. It also conditionally renders its children, showing a loading indicator until the user data is fetched.
+This allows React apps to handle OAuth logins **without manually dealing with tokens** — SecureBite manages cookies automatically.
 
-* **`useUser`**: A custom hook to easily access the user context values in any component.
+---
+---
 
-* **`Profile` Component**: A simple example of a component that consumes the `user` data from the context. It displays the user's email and ID (or "N/A" if not available) and handles loading and error states.
+## Security Tips
 
-* **Wrapping `App`**: The `UserProvider` wraps the `<App />` component, making the context available throughout the application.
+* **Use HTTPS** in production to protect cookies.
+* **Set `AUTH_COOKIE_SECURE=True`** for production.
+* **Enable CSRF protection** when using POST requests.
+* **Use `token_blacklist`** to invalidate refresh tokens when users log out.
 
-**Key Considerations:**
+---
 
-* **Error Handling**: The example includes basic error handling, but you'll likely want more robust error reporting (e.g., displaying error messages to the user).
+## Contributing
 
-* **Authentication Flow**: This example focuses on *fetching* the user data *after* authentication. You'll still need components and logic for the login process (using `/api/token/login/`) and logout (using `/api/token/logout/`) to set and clear the cookies, respectively.
+We welcome contributions!
 
-* **axios**: You'll need to install `axios` (or use `fetch`) to make HTTP requests from your React application.
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature-branch`)
+3. Commit your changes
+4. Push and open a pull request
 
-* **Security**: Always handle authentication tokens securely in your frontend code. SecureBite's cookie-based approach helps, but be mindful of XSS vulnerabilities.
+---
 
-* **Token Refresh**: The React code doesn't explicitly handle token refresh. SecureBite's middleware handles that on the server-side. Your React app should be designed to handle 401 Unauthorized errors gracefully, knowing that SecureBite will attempt to refresh the token behind the scenes.
+## License
 
-* **CORS**: Ensure your Django backend is properly configured for CORS to allow requests from your React frontend.
+Licensed under the **Apache License Version 2.0**.
+See `LICENSE` for details.
 
-##   Contributing
+---
 
-    We welcome contributions! [cite: 16, 17] To contribute:
 
-1.  Fork the repository
-
-2.  Create a new branch (`git checkout -b feature-branch`)
-
-3.  Commit your changes (`git commit -m "Add new feature"`)
-
-4.  Push to the branch (`git push origin feature-branch`)
-
-5.  Open a pull request
-
-##   License
-
-    This project is licensed under the MIT License. [cite: 17, 18] See LICENSE for details.
-
-##   Contact
-
-    For any questions or issues, feel free to open an issue on GitHub or reach out to the maintainers.

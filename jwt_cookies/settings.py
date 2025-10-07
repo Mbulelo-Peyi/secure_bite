@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 import sys
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xe_^lndg1(fr*e0au2&#3aeat#dtjn)0(+c!x-4uh#=#=afq01'
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -159,7 +161,27 @@ JWT_AUTH_COOKIE_SETTINGS = {
     'AUTH_COOKIE_SAMESITE': 'Lax',
     'AUTH_COOKIE_PATH': '/',
 }
-
+SECURE_BITE_PROVIDERS = {
+    "google": {
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+        "auth_url": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_url": "https://oauth2.googleapis.com/token",
+        "userinfo_url": "https://openidconnect.googleapis.com/v1/userinfo",
+        "scope": "openid email profile",
+        "redirect_uri": "https://api.example.com/auth/oauth_callback/?provider=google",
+    },
+    "github": {
+        "client_id": "GITHUB_CLIENT_ID",
+        "client_secret": "GITHUB_CLIENT_SECRET",
+        "auth_url": "https://github.com/login/oauth/authorize",
+        "token_url": "https://github.com/login/oauth/access_token",
+        "userinfo_url": "https://api.github.com/user",
+        "scope": "read:user user:email",
+        "redirect_uri": "https://api.example.com/auth/oauth_callback/?provider=github",
+        "token_headers": {"Accept": "application/json"},
+    },
+}
 
 
 # Internationalization

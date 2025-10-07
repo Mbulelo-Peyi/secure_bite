@@ -1,11 +1,12 @@
 from django.test import TestCase, RequestFactory
-from django.contrib.auth.models import AnonymousUser
 from rest_framework.exceptions import AuthenticationFailed
 from secure_bite.authentication import CookieJWTAuthentication
 from rest_framework_simplejwt.tokens import AccessToken
 from django.contrib.auth import get_user_model
+from unittest.mock import patch
 
 User = get_user_model()
+
 
 class CookieJWTAuthenticationTests(TestCase):
     def setUp(self):
@@ -16,7 +17,7 @@ class CookieJWTAuthenticationTests(TestCase):
     def test_authenticate_valid_token(self):
         token = AccessToken.for_user(self.user)
         request = self.factory.get('/')
-        request.COOKIES['authToken'] = str(token)  # fixed cookie name
+        request.COOKIES['authToken'] = str(token)
 
         user, validated_token = self.authenticator.authenticate(request)
         self.assertEqual(user, self.user)
@@ -28,8 +29,9 @@ class CookieJWTAuthenticationTests(TestCase):
         self.assertIsNone(result)
 
     def test_authenticate_invalid_token(self):
-        request = self.factory.get('/')
-        request.COOKIES['authToken'] = 'invalidtoken'  # fixed cookie name
+        """Invalid tokens should simply return None, not raise AuthenticationFailed"""
+        request = self.factory.get("/")
+        request.COOKIES["authToken"] = "invalidtoken"
 
-        with self.assertRaises(AuthenticationFailed):
-            self.authenticator.authenticate(request)
+        result = self.authenticator.authenticate(request)
+        self.assertIsNone(result)

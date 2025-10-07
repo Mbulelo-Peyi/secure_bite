@@ -3,7 +3,6 @@ from django.http import HttpResponse
 from unittest.mock import patch, MagicMock
 from secure_bite.middleware import RefreshTokenMiddleware
 from django.contrib.auth import get_user_model
-from django.conf import settings
 from secure_bite.utils import get_jwt_cookie_settings
 
 cookie_settings = get_jwt_cookie_settings()
@@ -15,7 +14,7 @@ class RefreshTokenMiddlewareTests(TestCase):
         self.user = User.objects.create_user(username='testuser', password='password')
         self.middleware = RefreshTokenMiddleware(lambda req: HttpResponse())
 
-    @patch('secure_bite.middleware.RefreshToken')  # <-- patch the class, not for_user
+    @patch('secure_bite.middleware.RefreshToken')
     def test_process_request_valid_refresh_token(self, mock_refresh_token_class):
         # Setup fake refresh token
         mock_refresh_token = MagicMock()
