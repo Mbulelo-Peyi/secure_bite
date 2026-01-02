@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.manifest
+*.spec
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Build & distribution
+build/
+dist/
+*.egg-info/
+*.eggs/
+pip-wheel-metadata/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+tests/
+
+
+# Django / local settings
+local_settings.py
+db.sqlite3
+media/
+staticfiles/
+*.sqlite3
+
+# Secrets & config files 
+*.env
+.env.*
+secrets.json
+config.json
+
+
+Docs.MD
+# Python build artifacts
+dist/
+*.egg-info/
+pypi.txt
+.pypirc
+publish.txt
