@@ -429,6 +429,24 @@ We welcome contributions!
 
 ---
 
+## Codecov badge
+
+Markdown
+
+[![codecov](https://codecov.io/github/Mbulelo-Peyi/secure_bite/graph/badge.svg?token=2OMO2SWDWX)](https://codecov.io/github/Mbulelo-Peyi/secure_bite)
+
+HTML
+
+<a href="https://codecov.io/github/Mbulelo-Peyi/secure_bite" > 
+ <img src="https://codecov.io/github/Mbulelo-Peyi/secure_bite/graph/badge.svg?token=2OMO2SWDWX"/> 
+ </a>
+
+RST
+
+.. image:: https://codecov.io/github/Mbulelo-Peyi/secure_bite/graph/badge.svg?token=2OMO2SWDWX 
+ :target: https://codecov.io/github/Mbulelo-Peyi/secure_bite
+---
+
 ## License
 
 Licensed under the **Apache License Version 2.0**.
