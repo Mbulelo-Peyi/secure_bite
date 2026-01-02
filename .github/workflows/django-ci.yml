@@ -26,7 +26,7 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-django pytest-cov
       - name: Run tests with coverage
-        run: pytest --cov=jwt_cookies --cov-report=xml
+        run: python -m pytest
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
